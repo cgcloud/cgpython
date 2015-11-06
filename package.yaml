@@ -1,0 +1,15 @@
+config_version : 0
+version: 0.0.1
+name: cgpython
+authors:
+- honglou
+description: cg python package
+
+requires:
+- python
+
+commands:
+- export PATH=$PATH:!ROOT!/bin
+- export PYTHONPATH=$PYTHONPATH:!ROOT!
+
+
