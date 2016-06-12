@@ -164,6 +164,7 @@ def alias(name):
     return decorate
 
 
+
 @alias('path')
 class Path(text_type):
     """ Represents a filesystem path.
