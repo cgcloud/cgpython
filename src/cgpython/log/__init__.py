@@ -8,6 +8,7 @@ io.debug('debug')
 """
 
 import os
+import sys
 import inspect
 import logging
 import logging.handlers
@@ -18,11 +19,6 @@ ORDINARY = 25
 logging.addLevelName(ORDINARY, 'ORDINARY')
 
 
-_LOG_LEVELS = {'info': logging.INFO, 'debug': logging.DEBUG,
-               'warning': logging.WARNING, 'error': logging.ERROR,
-               'critical': logging.CRITICAL}
-
-
 def createTempFile():
     """
     create temp file
@@ -30,6 +26,40 @@ def createTempFile():
     """
     import tempfile
     return tempfile.NamedTemporayFile(suffix='.log', delete=False)
+
+
+def _getCallerStatus():
+    try:
+        frame = sys._getframe(4)
+    except Exception:
+        frame = sys._getframe(3)
+
+    fileName = frame.f_code.co_filename
+    callerFrameRecorder = inspect.stack()[1]
+    moduleName = inspect.getmodule(callerFrameRecorder[0]).__name__
+    lineNumber = frame.f_lineno
+    functionName = frame.f_code.co_name
+    # For class
+    if 'self' in frame.f_locals.keys():
+        className = frame.f_locals['self'].__class__.__name__
+        if moduleName and className and functionName:
+            if functionName == '?':
+                logger = ".".join((moduleName, className))
+            else:
+                logger = ".".join(
+                    (moduleName, className, functionName))
+        else:
+            logger = None
+    else:
+        className = None
+        if moduleName and functionName:
+            if functionName == '?':
+                logger = moduleName
+            else:
+                logger = ".".join([moduleName, functionName])
+        else:
+            logger = None
+    return (logger, fileName, lineNumber)
 
 
 class CgLogger(logging.Logger):
@@ -57,11 +87,8 @@ class Log(object):
 
         if not logger:
             logName = _getCallerStatus()[0]
-            logger = CgLogger(logName)
-
-        self.log = logger
-        self.logLevel = self._getLogLevel()
-        self.log.setLevel(self.logLevel)
+            self.log = CgLogger(logName)
+            self._createStreamLogger()
 
     def _getLogLevel(self):
         if os.environ.get('DEBUG'):
@@ -78,48 +105,14 @@ class Log(object):
             logLevel = ORDINARY
         return logLevel
 
-    def _getCallerStatus(self):
-        try:
-            frame = sys._getframe(4)
-        except Exception:
-            frame = sys._getframe(3)
-
-        fileName = frame.f_code.co_filename
-        callerFrameRecorder = inspect.stack()[1]
-        moduleName = inspect.getmodule(callerFrameRecorder[0]).__name__
-        lineNumber = frame.f_lineno
-        functionName = frame.f_code.co_name
-        # For class
-        if 'self' in frame.f_locals.keys():
-            className = frame.f_locals['self'].__class__.__name__
-            if moduleName and className and functionName:
-                if functionName == '?':
-                    logger = ".".join((moduleName, className))
-                else:
-                    logger = ".".join(
-                        (moduleName, className, functionName))
-            else:
-                logger = None
-        else:
-            className = None
-            if moduleName and functionName:
-                if functionName == '?':
-                    logger = moduleName
-                else:
-                    logger = ".".join([moduleName, functionName])
-            else:
-                logger = None
-        return (logger, fileName, lineNumber)
-
-    def createStreamLogger(self):
+    def _createStreamLogger(self):
         """
         create default stream logger
-        @return: logger instance
         """
 
         # create console handler and set level to debug
         handler = logging.StreamHandler()
-        handler.setLevel(_LOG_LEVELS.get(self.logLevel))
+        handler.setLevel(self._getLogLevel())
 
         # create formatter
         formatter = logging.Formatter("%(levelname)s %(asctime)s %(message)s")
@@ -128,17 +121,14 @@ class Log(object):
         handler.setFormatter(formatter)
 
         # add handler to logger
-        self.Handler = handler
+        self.handler = handler
         self.log.addHandler(handler)
 
-        return self.log
-
-    def createFileLogger(self, logFile=None):
+    def _createFileLogger(self, logFile=None):
         """
         create file logger
         @param logFile: file logger path
         @type logFile: str (default:None)
-        @return: logger instance
         """
 
         self.log.propagate = False
@@ -151,13 +141,12 @@ class Log(object):
         handler = logging.handlers.RotatingFileHandler(logFile,
                                                        maxBytes=2097152,
                                                        backupCount=5)
-        handler.setLevel(_LOG_LEVELS.get(self.logLevel))
+        handler.setLevel(self._getLogLevel())
         formatter = logging.Formatter('(%(asctime)s %(filename)s[line:)'
                                       '(%(lineno)d] %(levelname)s %(message)s)')
         handler.setFormatter(formatter)
         self.log.addHandler(handler)
-        self.Handler = handler
-        return self.log
+        self.handler = handler
 
 
 def __getLogger(logger=None, logFile=None, **kwargs):
@@ -175,7 +164,7 @@ def debug(msg, **kwargs):
     __getLogger(**kwargs).debug(msg)
 
 
-def write(msg, *kwargs):
+def write(msg, **kwargs):
     __getLogger(**kwargs).write(msg)
 
 

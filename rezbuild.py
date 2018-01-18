@@ -11,8 +11,9 @@ def build(source_path, build_path, install_path, targets):
         src_py = os.path.join(source_path, "src", "cgpython")
         dest_py = os.path.join(build_path, "cgpython")
 
-        if not os.path.exists(dest_py):
-            shutil.copytree(src_py, dest_py)
+        if os.path.exists(dest_py):
+            shutil.rmtree(dest_py)
+        shutil.copytree(src_py, dest_py)
 
         # binaries
         mode = (stat.S_IRUSR | stat.S_IRGRP |
