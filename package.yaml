@@ -11,5 +11,3 @@ requires:
 commands:
 - export PATH=$PATH:!ROOT!/bin
 - export PYTHONPATH=$PYTHONPATH:!ROOT!
-
-
